@@ -199,7 +199,9 @@ established in layers, and every layer fails closed:
 Implementation and tests are listed in
 [the plugin guide](plugins.md#marketplace-trust-model-end-to-end). The
 threat-review rows above cover the concrete controls; this section is the
-end-to-end view for reviewers and operators.
+end-to-end view for reviewers and operators. The adversarial view, including
+residual risk and out-of-scope items, is recorded in the
+[marketplace threat model](marketplace-threat-model.md).
 
 ## Known limitations / planned hardening
 
