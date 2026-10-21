@@ -1,6 +1,7 @@
 """Budget management UI (#462) and workspace usage dashboard (#447) tests."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 from app.extensions import db
 from app.models import Budget, Project, UsageRecord, User, Workspace, WorkspaceMember
@@ -300,3 +301,29 @@ class TestBudgetManagementUi:
         )
         assert response.status_code == 200
         assert response.get_json()["budget"]["scope_name"] == "My account"
+
+
+class TestUsageDashboardStates:
+    def test_workspace_usage_has_loading_empty_and_retryable_error_states(
+        self, client, login, app, db
+    ):
+        team = _team(app, db)
+        login("contributor@example.com")
+
+        html = client.get(f"/workspaces/{team['workspace'].id}/members").get_data(as_text=True)
+        assert "Loading usage..." in html
+
+        js = (Path(app.root_path).parent / "app" / "static" / "js" / "members.js").read_text(
+            encoding="utf-8"
+        )
+        assert "No usage recorded in this workspace yet." in js
+        assert "Usage could not be loaded." in js
+        assert "usage-retry" in js
+        assert "Retry" in js
+
+    def test_billing_usage_page_has_an_explicit_empty_state(self, client, login, make_user):
+        make_user(username="empty-usage", email="empty-usage@example.com")
+        login("empty-usage@example.com")
+
+        html = client.get("/billing/usage").get_data(as_text=True)
+        assert "No usage in this window." in html

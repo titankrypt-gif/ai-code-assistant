@@ -241,30 +241,72 @@
     body.innerHTML = rows.join("");
   }
 
+  function usageNoteText(data) {
+    return (
+      "Token and cost totals across this workspace. Costs are estimates." +
+      (data && data.member_detail === "self" ? " Member breakdown shows your usage only." : "")
+    );
+  }
+
+  function showUsageError(message) {
+    var totalsEl = document.getElementById("workspace-usage-totals");
+    var note = document.getElementById("workspace-usage-note");
+    if (totalsEl) {
+      totalsEl.innerHTML = '<p class="empty-note" role="alert">Usage could not be loaded.</p>';
+    }
+    if (note) {
+      note.textContent = "Usage unavailable: " + message + " ";
+      var retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn btn-ghost btn-sm usage-retry";
+      retry.textContent = "Retry";
+      retry.addEventListener("click", loadWorkspaceUsage);
+      note.appendChild(retry);
+    }
+    renderUsageTable("workspace-usage-projects", [], "Usage unavailable.");
+    renderUsageTable("workspace-usage-sources", [], "Usage unavailable.");
+    if (MY_ROLE === "owner") {
+      renderUsageTable("workspace-usage-members", [], "Usage unavailable.");
+    }
+  }
+
   function loadWorkspaceUsage() {
     var panel = document.getElementById("workspace-usage-panel");
     if (!panel) return;
+    var totalsEl = document.getElementById("workspace-usage-totals");
+    var note = document.getElementById("workspace-usage-note");
+    if (totalsEl) {
+      totalsEl.setAttribute("aria-busy", "true");
+      totalsEl.innerHTML = '<p class="empty-note" role="status">Loading usage...</p>';
+    }
+    if (note) note.textContent = usageNoteText(null);
+    renderUsageTable("workspace-usage-projects", [], "Loading usage...");
+    renderUsageTable("workspace-usage-sources", [], "Loading usage...");
+    if (MY_ROLE === "owner") {
+      renderUsageTable("workspace-usage-members", [], "Loading usage...");
+    }
+
     api("/workspaces/api/workspaces/" + WORKSPACE_ID + "/usage")
       .then(function (data) {
         var currency = data.currency || null;
         var totals = data.totals || {};
-        var totalsEl = document.getElementById("workspace-usage-totals");
         if (totalsEl) {
-          totalsEl.innerHTML =
-            '<div class="metric-card"><span class="metric-label">Total tokens</span>' +
-            '<strong class="metric-value">' + escapeHtml(formatTokens(totals.total_tokens)) + "</strong></div>" +
-            '<div class="metric-card"><span class="metric-label">Requests</span>' +
-            '<strong class="metric-value">' + escapeHtml(formatTokens(totals.count)) + "</strong></div>" +
-            '<div class="metric-card"><span class="metric-label">Estimated cost</span>' +
-            '<strong class="metric-value">' + escapeHtml(formatCost(totals.cost_estimate, currency)) + "</strong></div>";
+          totalsEl.removeAttribute("aria-busy");
+          if (!totals.count) {
+            totalsEl.innerHTML =
+              '<p class="empty-note">No usage recorded in this workspace yet.</p>';
+          } else {
+            totalsEl.innerHTML =
+              '<div class="metric-card"><span class="metric-label">Total tokens</span>' +
+              '<strong class="metric-value">' + escapeHtml(formatTokens(totals.total_tokens)) + "</strong></div>" +
+              '<div class="metric-card"><span class="metric-label">Requests</span>' +
+              '<strong class="metric-value">' + escapeHtml(formatTokens(totals.count)) + "</strong></div>" +
+              '<div class="metric-card"><span class="metric-label">Estimated cost</span>' +
+              '<strong class="metric-value">' + escapeHtml(formatCost(totals.cost_estimate, currency)) + "</strong></div>";
+          }
         }
 
-        var note = document.getElementById("workspace-usage-note");
-        if (note) {
-          note.textContent =
-            "Token and cost totals across this workspace. Costs are estimates." +
-            (data.member_detail === "self" ? " Member breakdown shows your usage only." : "");
-        }
+        if (note) note.textContent = usageNoteText(data);
 
         renderUsageTable(
           "workspace-usage-projects",
@@ -306,8 +348,7 @@
         }
       })
       .catch(function (error) {
-        var note = document.getElementById("workspace-usage-note");
-        if (note) note.textContent = "Usage unavailable: " + error.message;
+        showUsageError(error.message);
       });
   }
 
